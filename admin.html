@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Tilo.Go Admin Dashboard V11</title>
+<style>
+:root{--bg:#f7f4ff;--card:#fff;--text:#20183d;--muted:#756b91;--line:#e8ddff;--brand:#6426e8;--brand2:#7c3aed;--good:#067647;--bad:#b42318;--warn:#b54708;--soft:#f3edff}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#fbf8ff,#fffaf2);font-family:Inter,system-ui,-apple-system,Segoe UI,Arial,sans-serif;color:var(--text)}
+header{position:sticky;top:0;z-index:5;background:rgba(255,255,255,.94);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);box-shadow:0 8px 22px rgba(61,25,128,.06)}
+.wrap{max-width:1280px;margin:0 auto;padding:14px}.top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.brand{font-weight:1000;font-size:22px}.muted{color:var(--muted)}
+button,input,select{font:inherit;border:1px solid var(--line);border-radius:13px;padding:10px 12px;background:#fff}button{cursor:pointer;font-weight:900;color:#5b24ca}.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:15px;box-shadow:0 10px 28px rgba(62,30,130,.08)}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.kpi b{font-size:34px;line-height:1}.kpi span{display:block;color:var(--muted);font-weight:750;margin-top:6px}.ok{color:var(--good)}.bad{color:var(--bad)}.warn{color:var(--warn)}
+table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #eee;padding:9px;text-align:left;vertical-align:top;font-size:13px}th{color:#5b24ca;background:#fbf9ff;position:sticky;top:74px;z-index:1}.scroll{max-height:520px;overflow:auto}.pill{display:inline-flex;border-radius:999px;background:var(--soft);color:#5b24ca;padding:4px 8px;font-size:12px;font-weight:900}.bar{height:10px;border-radius:999px;background:#eee;overflow:hidden}.bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--brand),var(--brand2));min-width:2px}.mini{font-size:12px}.debug{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;white-space:pre-wrap;background:#111827;color:#e5e7eb;border-radius:14px;padding:12px;max-height:260px;overflow:auto}
+@media(max-width:900px){.grid,.grid2,.grid3{grid-template-columns:1fr}.wrap{padding:10px}th{position:static}.brand{font-size:19px}}
+</style>
+</head>
+<body>
+<header><div class="wrap top"><div><div class="brand">📊 Tilo.Go Admin Dashboard V11</div><div class="muted mini">Đọc trực tiếp Firestore. Collection thiếu sẽ bỏ qua, không làm dashboard lỗi.</div></div><div class="top"><input id="email" type="email" placeholder="Admin email"><input id="password" type="password" placeholder="Password"><button class="primary" id="loginBtn">Đăng nhập</button><button id="refreshBtn">Refresh</button><button id="csvBtn">Export CSV</button><button id="logoutBtn">Đăng xuất</button></div></div></header>
+<main class="wrap">
+<div id="status" class="card muted">Log in with a Firebase admin account to view the data.</div>
+<section class="grid" style="margin-top:12px">
+<div class="card kpi"><b id="kUsers">0</b><span>Total users</span></div>
+<div class="card kpi"><b id="kActive1">0</b><span>Active today</span></div>
+<div class="card kpi"><b id="kActive7">0</b><span>Active 7 days</span></div>
+<div class="card kpi"><b id="kAttempts">0</b><span>Exercises submitted</span></div>
+<div class="card kpi"><b id="kAccuracy">0%</b><span>Accuracy</span></div>
+<div class="card kpi"><b id="kEvents">0</b><span>Behavior events</span></div>
+<div class="card kpi"><b id="kSpeaking">0</b><span>Speaking</span></div>
+<div class="card kpi"><b id="kSessions">0</b><span>Sessions</span></div>
+</section>
+<section class="grid3" style="margin-top:12px">
+<div class="card"><h3>Firestore loaded</h3><div id="loadedStats"></div></div>
+<div class="card"><h3>Top Domain</h3><div id="topDomain"></div></div>
+<div class="card"><h3>Top Skill</h3><div id="topSkill"></div></div>
+</section>
+<section class="grid2" style="margin-top:12px">
+<div class="card"><h3>Daily Activity</h3><div id="dailyAttempts"></div></div>
+<div class="card"><h3>Funnel / Events</h3><div id="eventMix"></div></div>
+</section>
+<section class="card" style="margin-top:12px"><h3>User Search</h3><div class="top" style="justify-content:flex-start"><input id="searchBox" placeholder="Tìm email / uid / domain / skill..." style="max-width:420px"><button id="searchBtn">Search</button></div></section>
+<section class="card" style="margin-top:12px"><h3>Recent behavior events</h3><div class="scroll"><table><thead><tr><th>Time</th><th>User</th><th>Event</th><th>Domain</th><th>Can-do</th><th>Skill</th><th>Exercise</th></tr></thead><tbody id="eventsBody"></tbody></table></div></section>
+<section class="card" style="margin-top:12px"><h3>Recent attempts</h3><div class="scroll"><table><thead><tr><th>Time</th><th>User</th><th>Domain</th><th>Can-do</th><th>Skill</th><th>Exercise</th><th>Correct</th><th>Answer</th></tr></thead><tbody id="attemptsBody"></tbody></table></div></section>
+<section class="card" style="margin-top:12px"><h3>Users / Progress</h3><div class="scroll"><table><thead><tr><th>Email</th><th>UID</th><th>Created</th><th>Last seen</th><th>Last domain</th><th>Last skill</th><th>Submits</th></tr></thead><tbody id="usersBody"></tbody></table></div></section>
+<section class="card" style="margin-top:12px"><h3>Debug</h3><div id="debug" class="debug">Waiting...</div></section>
+</main>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig={apiKey:"AIzaSyAj8rUlhIpWF0bAXUsfD2otMCu4U6RPvDM",authDomain:"tilogo-deutsch.firebaseapp.com",projectId:"tilogo-deutsch",storageBucket:"tilogo-deutsch.firebasestorage.app",messagingSenderId:"741969833721",appId:"1:741969833721:web:af0333cc04ee6fb72bbc28",measurementId:"G-1SQBTYFVG5"};
+const adminEmails=["giaonguyen1313@gmail.com","minhgamescratch@gmail.com"];
+firebase.initializeApp(firebaseConfig); const auth=firebase.auth(); const db=firebase.firestore();
+let cache={users:[],events:[],attempts:[],sessions:[],progress:[],summary:[],speaking:[],daily_stats:[]}; let rawCache=null;
+const $=id=>document.getElementById(id);
+function setStatus(s,bad=false){$('status').innerHTML=s;$('status').style.color=bad?'#b42318':'#746b8f'}
+function logDebug(obj){$('debug').textContent=typeof obj==='string'?obj:JSON.stringify(obj,null,2)}
+function escapeHtml(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function asDate(x){try{if(!x)return null;if(x.toDate)return x.toDate();if(typeof x==='number')return new Date(x);if(typeof x==='string'){const d=new Date(x);return isNaN(d.getTime())?null:d}return null}catch(e){return null}}
+function timeOf(o){return asDate(o.createdAt)||asDate(o.createdAtIso)||asDate(o.timestamp)||asDate(o.time)||asDate(o.lastSeenAt)||asDate(o.lastLoginAt)||asDate(o.updatedAt)||new Date(0)}
+function fmt(x){const d=asDate(x);return d?d.toLocaleString():''}
+function inc(m,k){k=k||'Unknown';m[k]=(m[k]||0)+1}
+function pick(o,keys){for(const k of keys){if(o&&o[k]!==undefined&&o[k]!==null&&o[k]!=='')return o[k]}return ''}
+function uidOf(o){return pick(o,['uid','userId','user_id','id','email'])}
+function emailOf(o){return pick(o,['email','userEmail','user_email','adminEmail'])}
+function eventOf(o){return pick(o,['eventType','event','type','name','activityType','action'])}
+function domainOf(o){return pick(o,['domain','domainId','domain_id','domainCode','domainName'])}
+function canDoOf(o){return pick(o,['canDo','canDoId','can_do','canDoVi','can_do_id','cando','candoId'])}
+function skillOf(o){return pick(o,['skill','skillVi','skill_vi','activityType'])}
+function exerciseOf(o){return pick(o,['exerciseId','exercise_id','id'])}
+function answerOf(o){return pick(o,['userAnswer','answer','selectedAnswer','response','value'])}
+function correctOf(o){if(o.correct===true||o.isCorrect===true||o.score===1||o.result==='correct')return true;if(o.correct===false||o.isCorrect===false||o.result==='wrong')return false;return null}
+function bars(obj){const arr=Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,12);const max=arr[0]?.[1]||1;return arr.map(([k,v])=>`<div style="margin:9px 0"><div class="top"><b>${escapeHtml(k)}</b><span>${v}</span></div><div class="bar"><i style="width:${Math.round(v/max*100)}%"></i></div></div>`).join('')||'<div class="muted">No data</div>'}
+async function getCol(name,limit=5000){try{const snap=await db.collection(name).limit(limit).get();return{ok:true,data:snap.docs.map(d=>({id:d.id,...d.data()}))}}catch(e){console.warn('read failed',name,e);return{ok:false,error:e.message,data:[]}}}
+async function load(){
+ const u=auth.currentUser;if(!u)return setStatus('Chưa đăng nhập admin.',true);
+ const email=(u.email||'').toLowerCase();if(!adminEmails.includes(email))return setStatus(`Access denied: ${escapeHtml(email)} chưa nằm trong danh sách admin.`,true);
+ setStatus('Đang tải dữ liệu Firestore...');
+ const names=['users','events','attempts','sessions','progress','user_progress_summary','speaking','daily_stats']; const out={};
+ for(const n of names) out[n]=await getCol(n); rawCache=out;
+ cache.users=out.users.data||[]; cache.events=out.events.data||[]; cache.attempts=out.attempts.data||[]; cache.sessions=out.sessions.data||[];
+ cache.progress=out.progress.data||[]; cache.summary=out.user_progress_summary.data||[]; cache.speaking=out.speaking.data||[]; cache.daily_stats=out.daily_stats.data||[];
+ for(const k of ['events','attempts','sessions','speaking']) cache[k].sort((a,b)=>timeOf(b)-timeOf(a));
+ render();
+ const errors=Object.fromEntries(Object.entries(out).filter(([k,v])=>!v.ok).map(([k,v])=>[k,v.error]));
+ const msg=`Đã tải Firestore: ${cache.users.length} users, ${cache.attempts.length} attempts, ${cache.events.length} events, ${cache.sessions.length} sessions, ${cache.speaking.length} speaking.`;
+ setStatus(Object.keys(errors).length?msg+' <span class="warn">Một vài collection không đọc được/không tồn tại, đã bỏ qua.</span>':msg);
+}
+function filterRows(arr){const q=($('searchBox').value||'').trim().toLowerCase();if(!q)return arr;return arr.filter(o=>JSON.stringify(o).toLowerCase().includes(q))}
+function render(){
+ const now=Date.now(),d1=86400000,d7=7*d1; const events=filterRows(cache.events),attempts=filterRows(cache.attempts),users=filterRows(cache.users);
+ const allActivity=cache.events.concat(cache.attempts,cache.sessions,cache.speaking);
+ const active1=new Set(allActivity.filter(x=>now-timeOf(x).getTime()<d1).map(uidOf).filter(Boolean));
+ const active7=new Set(allActivity.filter(x=>now-timeOf(x).getTime()<d7).map(uidOf).filter(Boolean));
+ $('kUsers').textContent=cache.users.length; $('kActive1').textContent=active1.size; $('kActive7').textContent=active7.size;
+ $('kAttempts').textContent=cache.attempts.length; $('kEvents').textContent=cache.events.length; $('kSessions').textContent=cache.sessions.length;
+ $('kSpeaking').textContent=cache.speaking.length||cache.attempts.filter(a=>String(skillOf(a)).toLowerCase().includes('speaking')||String(skillOf(a)).includes('Nói')).length;
+ const correct=cache.attempts.filter(a=>correctOf(a)===true).length; $('kAccuracy').textContent=cache.attempts.length?Math.round(correct/cache.attempts.length*100)+'%':'0%';
+ $('loadedStats').innerHTML=['users','events','attempts','sessions','progress','user_progress_summary','speaking','daily_stats'].map(n=>{const item=rawCache?.[n];const count=item?.data?.length||0;const err=item&&!item.ok?` <span class="bad">- ${escapeHtml(item.error)}</span>`:'';return `<div class="mini">${n}: <b>${count}</b>${err}</div>`}).join('');
+ const dm={},sk={},ev={},days={}; cache.events.concat(cache.attempts,cache.speaking).forEach(x=>{inc(dm,domainOf(x));inc(sk,skillOf(x));inc(ev,eventOf(x));const d=timeOf(x);if(d.getTime()>0)inc(days,d.toISOString().slice(0,10))});
+ $('topDomain').innerHTML=bars(dm); $('topSkill').innerHTML=bars(sk); $('eventMix').innerHTML=bars(ev); $('dailyAttempts').innerHTML=bars(days);
+ $('eventsBody').innerHTML=events.slice(0,500).map(e=>`<tr><td>${fmt(timeOf(e))}</td><td>${escapeHtml(emailOf(e)||uidOf(e))}</td><td><span class="pill">${escapeHtml(eventOf(e))}</span></td><td>${escapeHtml(domainOf(e))}</td><td>${escapeHtml(canDoOf(e))}</td><td>${escapeHtml(skillOf(e))}</td><td>${escapeHtml(exerciseOf(e))}</td></tr>`).join('')||'<tr><td colspan="7" class="muted">No events</td></tr>';
+ $('attemptsBody').innerHTML=attempts.slice(0,500).map(a=>{const c=correctOf(a);return `<tr><td>${fmt(timeOf(a))}</td><td>${escapeHtml(emailOf(a)||uidOf(a))}</td><td>${escapeHtml(domainOf(a))}</td><td>${escapeHtml(canDoOf(a))}</td><td>${escapeHtml(skillOf(a))}</td><td>${escapeHtml(exerciseOf(a))}</td><td>${c===true?'<b class="ok">TRUE</b>':c===false?'<b class="bad">FALSE</b>':''}</td><td>${escapeHtml(answerOf(a))}</td></tr>`}).join('')||'<tr><td colspan="8" class="muted">No attempts</td></tr>';
+ const summaryByUid={}; cache.summary.concat(cache.progress).forEach(s=>{summaryByUid[uidOf(s)||s.id]=s}); const attemptCount={}; cache.attempts.forEach(a=>inc(attemptCount,uidOf(a)||emailOf(a)||'unknown'));
+ $('usersBody').innerHTML=users.map(u=>{const uid=uidOf(u)||u.id;const p=summaryByUid[uid]||{};return `<tr><td>${escapeHtml(emailOf(u))}</td><td class="mini">${escapeHtml(uid)}</td><td>${fmt(pick(u,['createdAt','createdAtIso']))}</td><td>${fmt(pick(u,['lastSeenAt','lastLoginAt','updatedAt','lastSeenAtIso']))}</td><td>${escapeHtml(pick(p,['lastDomain','domain','domainId'])||pick(u,['lastDomain','domain']))}</td><td>${escapeHtml(pick(p,['lastSkill','skill','skillVi'])||pick(u,['lastSkill','skill']))}</td><td>${attemptCount[uid]||attemptCount[emailOf(u)]||0}</td></tr>`}).join('')||'<tr><td colspan="7" class="muted">No users</td></tr>';
+ logDebug({projectId:firebaseConfig.projectId,signedIn:auth.currentUser?.email||null,loaded:{users:cache.users.length,events:cache.events.length,attempts:cache.attempts.length,sessions:cache.sessions.length,progress:cache.progress.length,user_progress_summary:cache.summary.length,speaking:cache.speaking.length,daily_stats:cache.daily_stats.length},sample:{user:cache.users[0]||null,event:cache.events[0]||null,attempt:cache.attempts[0]||null},collectionStatus:Object.fromEntries(Object.entries(rawCache||{}).map(([k,v])=>[k,{ok:v.ok,count:v.data.length,error:v.error||null}]))});
+}
+$('loginBtn').onclick=async()=>{try{const email=$('email').value.trim().toLowerCase(),pass=$('password').value;if(!email||!pass)return setStatus('Nhập email và password admin.',true);await auth.signInWithEmailAndPassword(email,pass);await load()}catch(e){setStatus(e.code?`${e.code}: ${e.message}`:e.message,true);logDebug({loginError:e.code||'',message:e.message})}};
+$('logoutBtn').onclick=()=>auth.signOut(); $('refreshBtn').onclick=load; $('searchBtn').onclick=render; $('searchBox').oninput=()=>render();
+$('csvBtn').onclick=()=>{const rows=[['time','email','uid','event','domain','canDo','skill','exerciseId'],...cache.events.map(e=>[fmt(timeOf(e)),emailOf(e),uidOf(e),eventOf(e),domainOf(e),canDoOf(e),skillOf(e),exerciseOf(e)])];const csv=rows.map(r=>r.map(x=>'"'+String(x??'').replace(/"/g,'""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='tilogo_events_firestore_v11.csv';a.click()};
+auth.onAuthStateChanged(u=>{if(u){$('email').value=u.email||'';load()}else{setStatus('Đăng nhập bằng tài khoản admin Firebase để xem dữ liệu.')}});
+</script>
+</body>
+</html>
